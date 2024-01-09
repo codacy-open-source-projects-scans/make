@@ -1,5 +1,5 @@
 /* Pattern and suffix rule internals for GNU Make.
-Copyright (C) 1988-2023 Free Software Foundation, Inc.
+Copyright (C) 1988-2024 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -55,10 +55,6 @@ size_t max_pattern_dep_length;
    whose dependencies are the suffixes to be searched.  */
 
 struct file *suffix_file;
-
-/* Maximum length of a suffix.  */
-
-static size_t maxsuffix;
 
 /* Return the rule definition: space separated rule targets, followed by
    either a colon or two colons in the case of a terminal rule, followed by
@@ -140,6 +136,12 @@ snap_implicit_rules (void)
       const char *d = dep_name (dep);
       size_t l = strlen (d);
 
+      if (second_expansion)
+        {
+          if (!dep->name)
+            dep->name = xstrdup (dep->file->name);
+          dep->need_2nd_expansion = 1;
+        }
       if (dep->need_2nd_expansion)
         /* When pattern_search allocates a buffer, allow 5 bytes per each % to
            substitute each % with $(*F) while avoiding realloc.  */
@@ -298,7 +300,7 @@ convert_to_pattern (void)
      suffixes in the .SUFFIXES target's dependencies and see if it exists.
      First find the longest of the suffixes.  */
 
-  maxsuffix = 0;
+  size_t maxsuffix = 0;
   for (d = suffix_file->deps; d != 0; d = d->next)
     {
       size_t l = strlen (dep_name (d));
@@ -311,6 +313,7 @@ convert_to_pattern (void)
 
   for (d = suffix_file->deps; d != 0; d = d->next)
     {
+      struct file *f;
       size_t slen;
 
       /* Make a rule that is just the suffix, with no deps or commands.
@@ -321,14 +324,26 @@ convert_to_pattern (void)
         /* Record a pattern for this suffix's null-suffix rule.  */
         convert_suffix_rule ("", dep_name (d), d->file->cmds);
 
+      slen = strlen (dep_name (d));
+      memcpy (rulename, dep_name (d), slen + 1);
+
+      f = lookup_file (rulename);
+      if (f && f->cmds)
+        {
+          if (!f->deps)
+            f->suffix = 1;
+          else if (!posix_pedantic)
+            {
+              O (error, &f->cmds->fileinfo,
+                 _("warning: ignoring prerequisites on suffix rule definition"));
+              f->suffix = 1;
+            }
+        }
+
       /* Add every other suffix to this one and see if it exists as a
          two-suffix rule.  */
-      slen = strlen (dep_name (d));
-      memcpy (rulename, dep_name (d), slen);
-
       for (d2 = suffix_file->deps; d2 != 0; d2 = d2->next)
         {
-          struct file *f;
           size_t s2len;
 
           s2len = strlen (dep_name (d2));
@@ -353,9 +368,11 @@ convert_to_pattern (void)
             {
               if (posix_pedantic)
                 continue;
-              error (&f->cmds->fileinfo, 0,
-                     _("warning: ignoring prerequisites on suffix rule definition"));
+              O (error, &f->cmds->fileinfo,
+                 _("warning: ignoring prerequisites on suffix rule definition"));
             }
+
+          f->suffix = 1;
 
           if (s2len == 2 && rulename[slen] == '.' && rulename[slen + 1] == 'a')
             /* A suffix rule '.X.a:' generates the pattern rule '(%.o): %.X'.

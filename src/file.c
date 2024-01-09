@@ -1,5 +1,5 @@
 /* Target file management for GNU Make.
-Copyright (C) 1988-2023 Free Software Foundation, Inc.
+Copyright (C) 1988-2024 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -26,6 +26,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "debug.h"
 #include "hash.h"
 #include "shuffle.h"
+#include "rule.h"
 
 
 /* Remember whether snap_deps has been invoked: we need this to be sure we
@@ -334,6 +335,7 @@ rehash_file (struct file *from_file, const char *to_hname)
   MERGE (notintermediate);
   MERGE (ignore_vpath);
   MERGE (snapped);
+  MERGE (suffix);
 #undef MERGE
 
   to_file->builtin = 0;
@@ -722,6 +724,7 @@ snap_file (const void *item, void *arg)
 {
   struct file *f = (struct file*)item;
   struct dep *prereqs = NULL;
+  struct dep *d;
 
   /* If we're not doing second expansion then reset updating.  */
   if (!second_expansion)
@@ -741,14 +744,22 @@ snap_file (const void *item, void *arg)
 
   /* If .EXTRA_PREREQS is set, add them as ignored by automatic variables.  */
   if (f->variables)
-    prereqs = expand_extra_prereqs (lookup_variable_in_set (STRING_SIZE_TUPLE(".EXTRA_PREREQS"), f->variables->set));
-
+    {
+      prereqs = expand_extra_prereqs (lookup_variable_in_set (
+                      STRING_SIZE_TUPLE(".EXTRA_PREREQS"), f->variables->set));
+      if (second_expansion)
+        for (d = prereqs; d; d = d->next)
+          {
+            if (!d->name)
+              d->name = xstrdup (d->file->name);
+            d->need_2nd_expansion = 1;
+          }
+    }
   else if (f->is_target)
     prereqs = copy_dep_chain (arg);
 
   if (prereqs)
     {
-      struct dep *d;
       for (d = prereqs; d; d = d->next)
         if (streq (f->name, dep_name (d)))
           /* Skip circular dependencies.  */
@@ -1041,7 +1052,7 @@ file_timestamp_sprintf (char *p, FILE_TIMESTAMP ts)
 
 /* Print the data base of files.  */
 
-void
+static void
 print_prereqs (const struct dep *deps)
 {
   const struct dep *ood = 0;
@@ -1191,6 +1202,34 @@ print_file_data_base (void)
 
   fputs (_("\n# files hash-table stats:\n# "), stdout);
   hash_print_stats (&files, stdout);
+}
+
+static void
+print_target (const void *item)
+{
+  const struct file *f = item;
+
+  if (!f->is_target || f->suffix)
+    return;
+
+  /* Ignore any special targets, as defined by POSIX. */
+  if (f->name[0] == '.' && isupper ((unsigned char)f->name[1]))
+    {
+      const char *cp = f->name + 1;
+      while (*(++cp) != '\0')
+        if (!isupper ((unsigned char)*cp))
+          break;
+      if (*cp == '\0')
+        return;
+    }
+
+  puts (f->name);
+}
+
+void
+print_targets (void)
+{
+  hash_map (&files, print_target);
 }
 
 /* Verify the integrity of the data base of files.  */

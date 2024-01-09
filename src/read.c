@@ -1,5 +1,5 @@
 /* Reading and parsing of makefiles for GNU Make.
-Copyright (C) 1988-2023 Free Software Foundation, Inc.
+Copyright (C) 1988-2024 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -1672,13 +1672,27 @@ conditional_line (char *line, size_t len, const floc *flocp)
       if (termin == ',')
         {
           int count = 0;
-          for (; *line != '\0'; ++line)
-            if (*line == '(')
-              ++count;
-            else if (*line == ')')
-              --count;
-            else if (*line == ',' && count <= 0)
-              break;
+          char *delim = xmalloc (strlen (line));
+          while (*line != '\0')
+            {
+              if (*line == '$')
+                {
+                  ++line;
+                  if (*line == '(')
+                    delim[count++] = ')';
+                  else if (*line == '{')
+                    delim[count++] = '}';
+                }
+              else if (count == 0)
+                {
+                  if (*line == ',')
+                    break;
+                }
+              else if (*line == delim[count-1])
+                --count;
+              ++line;
+            }
+          free (delim);
         }
       else
         while (*line != '\0' && *line != termin)
@@ -2950,7 +2964,7 @@ construct_include_path (const char **arg_dirs)
   int disable = 0;
 
   /* Compute the number of pointers we need in the table.  */
-  idx = sizeof (default_include_directories) / sizeof (const char *);
+  idx = ARRAYLEN (default_include_directories);
   if (arg_dirs)
     for (cpp = arg_dirs; *cpp != 0; ++cpp)
       ++idx;

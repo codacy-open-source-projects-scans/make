@@ -1,5 +1,5 @@
 /* Builtin function expansion for GNU Make.
-Copyright (C) 1988-2023 Free Software Foundation, Inc.
+Copyright (C) 1988-2024 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -915,8 +915,6 @@ func_let (char *o, char **argv, const char *funcname UNUSED)
   const char *vp;
   const char *vp_next = varnames;
   const char *list_iterator = list;
-  char *p;
-  size_t len;
   size_t vlen;
 
   push_new_variable_scope ();
@@ -926,8 +924,9 @@ func_let (char *o, char **argv, const char *funcname UNUSED)
   NEXT_TOKEN (vp_next);
   while (*vp_next != '\0')
     {
-      p = find_next_token (&list_iterator, &len);
-      if (*list_iterator != '\0')
+      size_t len;
+      char *p = find_next_token (&list_iterator, &len);
+      if (p && *list_iterator != '\0')
         {
           ++list_iterator;
           p[len] = '\0';
@@ -2397,48 +2396,46 @@ static struct function_table_entry function_table_init[] =
   FT_ENTRY ("abspath",       0,  1,  1,  func_abspath),
   FT_ENTRY ("addprefix",     2,  2,  1,  func_addsuffix_addprefix),
   FT_ENTRY ("addsuffix",     2,  2,  1,  func_addsuffix_addprefix),
+  FT_ENTRY ("and",           1,  0,  0,  func_and),
   FT_ENTRY ("basename",      0,  1,  1,  func_basename_dir),
+  FT_ENTRY ("call",          1,  0,  1,  func_call),
   FT_ENTRY ("dir",           0,  1,  1,  func_basename_dir),
-  FT_ENTRY ("notdir",        0,  1,  1,  func_notdir_suffix),
-  FT_ENTRY ("subst",         3,  3,  1,  func_subst),
-  FT_ENTRY ("suffix",        0,  1,  1,  func_notdir_suffix),
+  FT_ENTRY ("error",         0,  1,  1,  func_error),
+  FT_ENTRY ("eval",          0,  1,  1,  func_eval),
+  FT_ENTRY ("file",          1,  2,  1,  func_file),
   FT_ENTRY ("filter",        2,  2,  1,  func_filter_filterout),
   FT_ENTRY ("filter-out",    2,  2,  1,  func_filter_filterout),
   FT_ENTRY ("findstring",    2,  2,  1,  func_findstring),
   FT_ENTRY ("firstword",     0,  1,  1,  func_firstword),
   FT_ENTRY ("flavor",        0,  1,  1,  func_flavor),
+  FT_ENTRY ("foreach",       3,  3,  0,  func_foreach),
+  FT_ENTRY ("if",            2,  3,  0,  func_if),
+  FT_ENTRY ("info",          0,  1,  1,  func_error),
+  FT_ENTRY ("intcmp",        2,  5,  0,  func_intcmp),
   FT_ENTRY ("join",          2,  2,  1,  func_join),
   FT_ENTRY ("lastword",      0,  1,  1,  func_lastword),
+  FT_ENTRY ("let",           3,  3,  0,  func_let),
+  FT_ENTRY ("notdir",        0,  1,  1,  func_notdir_suffix),
+  FT_ENTRY ("or",            1,  0,  0,  func_or),
+  FT_ENTRY ("origin",        0,  1,  1,  func_origin),
   FT_ENTRY ("patsubst",      3,  3,  1,  func_patsubst),
   FT_ENTRY ("realpath",      0,  1,  1,  func_realpath),
   FT_ENTRY ("shell",         0,  1,  1,  func_shell),
   FT_ENTRY ("sort",          0,  1,  1,  func_sort),
   FT_ENTRY ("strip",         0,  1,  1,  func_strip),
+  FT_ENTRY ("subst",         3,  3,  1,  func_subst),
+  FT_ENTRY ("suffix",        0,  1,  1,  func_notdir_suffix),
+  FT_ENTRY ("value",         0,  1,  1,  func_value),
+  FT_ENTRY ("warning",       0,  1,  1,  func_error),
   FT_ENTRY ("wildcard",      0,  1,  1,  func_wildcard),
   FT_ENTRY ("word",          2,  2,  1,  func_word),
   FT_ENTRY ("wordlist",      3,  3,  1,  func_wordlist),
   FT_ENTRY ("words",         0,  1,  1,  func_words),
-  FT_ENTRY ("origin",        0,  1,  1,  func_origin),
-  FT_ENTRY ("foreach",       3,  3,  0,  func_foreach),
-  FT_ENTRY ("let",           3,  3,  0,  func_let),
-  FT_ENTRY ("call",          1,  0,  1,  func_call),
-  FT_ENTRY ("info",          0,  1,  1,  func_error),
-  FT_ENTRY ("error",         0,  1,  1,  func_error),
-  FT_ENTRY ("warning",       0,  1,  1,  func_error),
-  FT_ENTRY ("intcmp",        2,  5,  0,  func_intcmp),
-  FT_ENTRY ("if",            2,  3,  0,  func_if),
-  FT_ENTRY ("or",            1,  0,  0,  func_or),
-  FT_ENTRY ("and",           1,  0,  0,  func_and),
-  FT_ENTRY ("value",         0,  1,  1,  func_value),
-  FT_ENTRY ("eval",          0,  1,  1,  func_eval),
-  FT_ENTRY ("file",          1,  2,  1,  func_file),
 #ifdef EXPERIMENTAL
   FT_ENTRY ("eq",            2,  2,  1,  func_eq),
   FT_ENTRY ("not",           0,  1,  1,  func_not),
 #endif
 };
-
-#define FUNCTION_TABLE_ENTRIES (sizeof (function_table_init) / sizeof (struct function_table_entry))
 
 
 /* These must come after the definition of function_table.  */
@@ -2737,9 +2734,9 @@ define_new_function (const floc *flocp, const char *name,
 void
 hash_init_function_table (void)
 {
-  hash_init (&function_table, FUNCTION_TABLE_ENTRIES * 2,
+  hash_init (&function_table, ARRAYLEN (function_table_init) * 2,
              function_table_entry_hash_1, function_table_entry_hash_2,
              function_table_entry_hash_cmp);
   hash_load (&function_table, function_table_init,
-             FUNCTION_TABLE_ENTRIES, sizeof (struct function_table_entry));
+             ARRAYLEN (function_table_init), sizeof (struct function_table_entry));
 }

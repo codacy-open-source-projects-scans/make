@@ -1,5 +1,5 @@
 /* Argument parsing and main program of GNU Make.
-Copyright (C) 1988-2023 Free Software Foundation, Inc.
+Copyright (C) 1988-2024 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -167,10 +167,15 @@ int env_overrides = 0;
 
 int ignore_errors_flag = 0;
 
-/* Nonzero means don't remake anything, just print the data base
-   that results from reading the makefile (-p).  */
+/* Nonzero means print the data base that results from reading the makefile.
+   (-p or --print-data-base).  */
 
 int print_data_base_flag = 0;
+
+/* Nonzero means don't remake anything, just print a list of targets defined
+   by reading the makefile (--print-targets).  */
+
+int print_targets_flag = 0;
 
 /* Nonzero means don't remake anything; just return a nonzero status
    if the specified targets are not up to date (-q).  */
@@ -509,6 +514,7 @@ static struct command_switch switches[] =
     { CHAR_MAX+11, string, &shuffle_mode, 1, 1, 0, 0, "random", 0, "shuffle", 0 },
     { CHAR_MAX+12, string, &jobserver_style, 1, 0, 0, 0, 0, 0, "jobserver-style", 0 },
     { WARN_OPT, strlist, &warn_flags, 1, 1, 0, 0, "warn", NULL, "warn", NULL },
+    { CHAR_MAX+14, flag, &print_targets_flag, 1, 1, 0, 0, 0, 0, "print-targets", 0 },
     { 0, 0, NULL, 0, 0, 0, 0, NULL, NULL, NULL, NULL }
   };
 
@@ -2289,6 +2295,14 @@ main (int argc, char **argv, char **envp)
         }
     }
 
+  /* If the user wants to see a list of targets show it now then quit.
+     We do this before rebuilding makefiles to avoid extraneous output.  */
+  if (print_targets_flag)
+    {
+      print_targets ();
+      die (EXIT_SUCCESS);
+    }
+
   if (!restarts && new_files != 0)
     {
       const char **p;
@@ -2898,10 +2912,8 @@ main (int argc, char **argv, char **envp)
 
 /* Parsing of arguments, decoding of switches.  */
 
-static char options[1 + sizeof (switches) / sizeof (switches[0]) * 3];
-static struct option long_options[(sizeof (switches) / sizeof (switches[0])) +
-                                  (sizeof (long_option_aliases) /
-                                   sizeof (long_option_aliases[0]))];
+static char options[1 + ARRAYLEN (switches) * 3];
+static struct option long_options[ARRAYLEN (switches) + ARRAYLEN (long_option_aliases)];
 
 /* Fill in the string and vector for getopt.  */
 static void
@@ -2956,9 +2968,7 @@ init_switches (void)
         }
     }
   *p = '\0';
-  for (c = 0; c < (sizeof (long_option_aliases) /
-                   sizeof (long_option_aliases[0]));
-       ++c)
+  for (c = 0; c < ARRAYLEN (long_option_aliases); ++c)
     long_options[i++] = long_option_aliases[c];
   long_options[i].name = 0;
 }
@@ -3718,7 +3728,7 @@ print_version (void)
      year, and none of the rest of it should be translated (including the
      word "Copyright"), so it hardly seems worth it.  */
 
-  printf ("%sCopyright (C) 1988-2023 Free Software Foundation, Inc.\n",
+  printf ("%sCopyright (C) 1988-2024 Free Software Foundation, Inc.\n",
           precede);
 
   printf (_("%sLicense GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>\n\

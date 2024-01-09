@@ -1,5 +1,5 @@
 /* Miscellaneous global declarations and portability cruft for GNU Make.
-Copyright (C) 1988-2023 Free Software Foundation, Inc.
+Copyright (C) 1988-2024 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -505,6 +505,9 @@ extern struct rlimit stack_limit;
 #include <glob.h>
 
 #define NILF ((floc *)0)
+
+/* Number of elements in an array.  */
+#define ARRAYLEN(_a)          (sizeof (_a) / sizeof ((_a)[0]))
 
 /* Number of characters in a string constant.  Does NOT include the \0 byte.  */
 #define CSTRLEN(_s)           (sizeof (_s)-1)
