@@ -148,13 +148,14 @@ recursively_expand_for_file (struct variable *v, struct file *file)
   const floc **saved_varp;
   struct variable_set_list *savev = 0;
   int set_reading = 0;
+  size_t nl = strlen (v->name);
+  struct variable *parent = NULL;
 
   /* If we're expanding to put into the environment of a shell function then
      ignore any recursion issues: for backward-compatibility we will use
      the value of the environment variable we were started with.  */
   if (v->expanding && env_recursion)
     {
-      size_t nl = strlen (v->name);
       char **ep;
       DB (DB_VERBOSE,
           (_("%s:%lu: not recursively expanding %s to export to shell function\n"),
@@ -163,7 +164,7 @@ recursively_expand_for_file (struct variable *v, struct file *file)
       /* We could create a hash for the original environment for speed, but a
          reasonably written makefile shouldn't hit this situation...  */
       for (ep = environ; *ep != 0; ++ep)
-        if ((*ep)[nl] == '=' && strncmp (*ep, v->name, nl) == 0)
+        if (strncmp (*ep, v->name, nl) == 0 && (*ep)[nl] == '=')
           return xstrdup ((*ep) + nl + 1);
 
       /* If there's nothing in the parent environment, use the empty string.
@@ -203,8 +204,49 @@ recursively_expand_for_file (struct variable *v, struct file *file)
 
   v->expanding = 1;
   if (v->append)
+    {
+      /* Find a parent definition which is marked override.  */
+      struct variable_set_list *sl;
+      for (sl = current_variable_set_list; sl && !parent; sl = sl->next)
+        {
+          struct variable *vp = lookup_variable_in_set (v->name, nl, sl->set);
+          if (vp && vp != v && vp->origin == o_override)
+            parent = vp;
+        }
+    }
+
+  if (parent)
+    /* PARENT is an override, V is appending.  If V is also an override:
+         override hello := first
+         al%: override hello += second
+       Then construct the value from its appended parts in the parent sets.
+       Else if V is not an override:
+         override hello := first
+         al%: hello += second
+       Then ignore the value of V and use the value of PARENT.  */
+    value = v->origin == o_override
+      ? allocated_variable_append (v)
+      : xstrdup (parent->value);
+  else if (v->origin == o_command || v->origin == o_env_override)
+    /* Avoid appending to a pattern-specific variable, unless the origin of this
+       pattern-specific variable beats or equals the origin of one of the parent
+       definitions of this variable.
+       This is needed, because if there is a command line definition or an env
+       override, then the value defined in the makefile should only be appended
+       in the case of a file override.
+       In the presence of command line definition or env override and absence of
+       makefile override, the value should be expanded, rather than appended. In
+       this case, at parse time record_target_var already set the value of this
+       pattern-specific variable to the value defined on the command line or to
+       the env override value.
+       User provided a command line definition or an env override.
+       PARENT does not have an override directive, so ignore it.  */
+    value = allocated_expand_string (v->value);
+  else if (v->append)
+    /* Construct the value from its appended parts in the parent sets.  */
     value = allocated_variable_append (v);
   else
+    /* A definition without appending.  */
     value = allocated_expand_string (v->value);
   v->expanding = 0;
 
@@ -382,47 +424,40 @@ expand_string_buf (char *buf, const char *string, size_t length)
           {
             char openparen = *p;
             char closeparen = (openparen == '(') ? ')' : '}';
-            const char *begp;
             const char *beg = p + 1;
-            char *op;
             char *abeg = NULL;
             const char *end, *colon;
 
-            op = o;
-            begp = p;
-            if (handle_function (&op, &begp))
-              {
-                o = op;
-                p = begp;
-                break;
-              }
+            if (handle_function (&o, &p))
+              break;
 
             /* Is there a variable reference inside the parens or braces?
                If so, expand it before expanding the entire reference.  */
 
             end = strchr (beg, closeparen);
-            if (end == 0)
+            if (end == NULL)
               /* Unterminated variable reference.  */
               O (fatal, *expanding_var, _("unterminated variable reference"));
             p1 = lindex (beg, end, '$');
-            if (p1 != 0)
+            if (p1 != NULL)
               {
                 /* BEG now points past the opening paren or brace.
                    Count parens or braces until it is matched.  */
-                int count = 0;
+                int count = 1;
                 for (p = beg; *p != '\0'; ++p)
                   {
                     if (*p == openparen)
                       ++count;
-                    else if (*p == closeparen && --count < 0)
+                    else if (*p == closeparen && --count == 0)
                       break;
                   }
-                /* If COUNT is >= 0, there were unmatched opening parens
+                /* If COUNT is > 0, there were unmatched opening parens
                    or braces, so we go to the simple case of a variable name
                    such as '$($(a)'.  */
-                if (count < 0)
+                if (count == 0)
                   {
-                    abeg = expand_argument (beg, p); /* Expand the name.  */
+                    /* Expand the name.  */
+                    abeg = expand_argument (beg, p);
                     beg = abeg;
                     end = strchr (beg, '\0');
                   }

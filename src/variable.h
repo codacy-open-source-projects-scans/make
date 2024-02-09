@@ -39,7 +39,6 @@ enum variable_flavor
     f_recursive,        /* Recursive definition (=) */
     f_expand,           /* POSIX :::= assignment */
     f_append,           /* Appending definition (+=) */
-    f_conditional,      /* Conditional definition (?=) */
     f_shell,            /* Shell assignment (!=) */
     f_append_value      /* Append unexpanded value */
   };
@@ -50,6 +49,13 @@ enum variable_export
     v_export,           /* Export this variable.  */
     v_noexport,         /* Don't export this variable.  */
     v_ifset             /* Export it if it has a non-default value.  */
+};
+
+enum variable_scope
+{
+    s_global = 0,       /* Global variable.  */
+    s_target,           /* Target-specific variable.  */
+    s_pattern           /* Pattern-specific variable.  */
 };
 
 /* Structure that represents one variable definition.
@@ -172,13 +178,14 @@ struct variable *do_variable_definition (const floc *flocp,
                                          const char *name, const char *value,
                                          enum variable_origin origin,
                                          enum variable_flavor flavor,
-                                         int target_var);
+                                         int conditional,
+                                         enum variable_scope scope);
 char *parse_variable_definition (const char *line,
                                  struct variable *v);
 struct variable *assign_variable_definition (struct variable *v, const char *line);
 struct variable *try_variable_definition (const floc *flocp, const char *line,
                                           enum variable_origin origin,
-                                          int target_var);
+                                          enum variable_scope scope);
 void init_hash_global_variable_set (void);
 void hash_init_function_table (void);
 void define_new_function(const floc *flocp, const char *name,
@@ -198,6 +205,7 @@ struct variable *define_variable_in_set (const char *name, size_t length,
                                          struct variable_set *set,
                                          const floc *flocp);
 void warn_undefined (const char* name, size_t length);
+void reset_env_override (void);
 
 /* Define a variable in the current variable set.  */
 

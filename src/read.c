@@ -68,7 +68,7 @@ struct vmodifiers
 enum make_word_type
   {
      w_bogus, w_eol, w_static, w_variable, w_colon, w_dcolon, w_semicolon,
-     w_varassign, w_ampcolon, w_ampdcolon
+     w_ampcolon, w_ampdcolon
   };
 
 
@@ -413,7 +413,7 @@ eval_makefile (const char *filename, unsigned short flags)
 
   /* Add this makefile to the list. */
   do_variable_definition (&ebuf.floc, "MAKEFILE_LIST", filename, o_file,
-                          f_append_value, 0);
+                          f_append_value, 0, s_global);
 
   /* Evaluate the makefile */
 
@@ -733,14 +733,14 @@ eval (struct ebuffer *ebuf, int set_default)
           record_waiting_files ();
 
           if (vmod.undefine_v)
-          {
-            do_undefine (p, origin, ebuf);
-            continue;
-          }
-          else if (vmod.define_v)
+            {
+              do_undefine (p, origin, ebuf);
+              continue;
+            }
+          if (vmod.define_v)
             v = do_define (p, origin, ebuf);
           else
-            v = try_variable_definition (fstart, p, origin, 0);
+            v = try_variable_definition (fstart, p, origin, s_global);
 
           assert (v != NULL);
 
@@ -1395,8 +1395,11 @@ do_define (char *name, enum variable_origin origin, struct ebuffer *ebuf)
 
   p = parse_variable_definition (name, &var);
   if (p == NULL)
-    /* No assignment token, so assume recursive.  */
-    var.flavor = f_recursive;
+    {
+      /* No assignment token, so assume recursive.  */
+      var.flavor = f_recursive;
+      var.conditional = 0;
+    }
   else
     {
       if (var.value[0] != '\0')
@@ -1480,8 +1483,8 @@ do_define (char *name, enum variable_origin origin, struct ebuffer *ebuf)
   else
     definition[idx - 1] = '\0';
 
-  v = do_variable_definition (&defstart, name,
-                              definition, origin, var.flavor, 0);
+  v = do_variable_definition (&defstart, name, definition, origin, var.flavor,
+                              var.conditional, s_global);
   free (definition);
   free (n);
   return (v);
@@ -1669,33 +1672,10 @@ conditional_line (char *line, size_t len, const floc *flocp)
 
       s1 = ++line;
       /* Find the end of the first string.  */
-      if (termin == ',')
-        {
-          int count = 0;
-          char *delim = xmalloc (strlen (line));
-          while (*line != '\0')
-            {
-              if (*line == '$')
-                {
-                  ++line;
-                  if (*line == '(')
-                    delim[count++] = ')';
-                  else if (*line == '{')
-                    delim[count++] = '}';
-                }
-              else if (count == 0)
-                {
-                  if (*line == ',')
-                    break;
-                }
-              else if (*line == delim[count-1])
-                --count;
-              ++line;
-            }
-          free (delim);
-        }
-      else
-        while (*line != '\0' && *line != termin)
+      while (*line != '\0' && *line != termin)
+        if (*line == '$')
+          line = skip_reference (line+1);
+        else
           ++line;
 
       if (*line == '\0')
@@ -1703,7 +1683,7 @@ conditional_line (char *line, size_t len, const floc *flocp)
 
       if (termin == ',')
         {
-          /* Strip blanks after the first string.  */
+          /* Strip blanks before the comma.  */
           char *p = line++;
           while (ISBLANK (p[-1]))
             --p;
@@ -1842,7 +1822,7 @@ record_target_var (struct nameseq *filenames, char *defn,
           initialize_file_variables (f, 1);
 
           current_variable_set_list = f->variables;
-          v = try_variable_definition (flocp, defn, origin, 1);
+          v = try_variable_definition (flocp, defn, origin, s_target);
           if (!v)
             O (fatal, flocp, _("malformed target-specific variable definition"));
           current_variable_set_list = global;
@@ -2355,35 +2335,7 @@ find_map_unquote (char *string, int stopmap)
       /* If we stopped due to a variable reference, skip over its contents.  */
       if (*p == '$')
         {
-          char openparen = p[1];
-
-          /* Check if '$' is the last character in the string.  */
-          if (openparen == '\0')
-            break;
-
-          p += 2;
-
-          /* Skip the contents of a non-quoted, multi-char variable ref.  */
-          if (openparen == '(' || openparen == '{')
-            {
-              unsigned int pcount = 1;
-              char closeparen = (openparen == '(' ? ')' : '}');
-
-              while (*p)
-                {
-                  if (*p == openparen)
-                    ++pcount;
-                  else if (*p == closeparen)
-                    if (--pcount == 0)
-                      {
-                        ++p;
-                        break;
-                      }
-                  ++p;
-                }
-            }
-
-          /* Skipped the variable reference: look for STOPCHARS again.  */
+          p = skip_reference (p+1);
           continue;
         }
 
@@ -2744,7 +2696,8 @@ readline (struct ebuffer *ebuf)
 }
 
 /* Parse the next "makefile word" from the input buffer, and return info
-   about it.
+   about it.  This function won't be called in any context where we might need
+   to parse a variable assignment so we don't need to check that.
 
    A "makefile word" is one of:
 
@@ -2757,11 +2710,10 @@ readline (struct ebuffer *ebuf)
      w_ampcolon     An ampersand-colon (&:) token
      w_ampdcolon    An ampersand-double-colon (&::) token
      w_semicolon    A semicolon
-     w_varassign    A variable assignment operator (=, :=, ::=, +=, ?=, or !=)
 
    Note that this function is only used when reading certain parts of the
    makefile.  Don't use it where special rules hold sway (RHS of a variable,
-   in a command list, etc.)  */
+   in a recipe, etc.)  */
 
 static enum make_word_type
 get_next_mword (char *buffer, char **startp, size_t *length)
@@ -2788,29 +2740,13 @@ get_next_mword (char *buffer, char **startp, size_t *length)
       wtype = w_semicolon;
       goto done;
 
-    case '=':
-      wtype = w_varassign;
-      goto done;
-
     case ':':
-      if (*p == '=')
+      wtype = w_colon;
+      if (*p == ':')
         {
           ++p;
-          wtype = w_varassign; /* := */
+          wtype = w_dcolon;
         }
-      else if (*p == ':')
-        {
-          ++p;
-          if (p[1] == '=')
-            {
-              ++p;
-              wtype = w_varassign; /* ::= */
-            }
-          else
-            wtype = w_dcolon;
-        }
-      else
-        wtype = w_colon;
       goto done;
 
     case '&':
@@ -2828,43 +2764,26 @@ get_next_mword (char *buffer, char **startp, size_t *length)
         }
       break;
 
-    case '+':
-    case '?':
-    case '!':
-      if (*p == '=')
-        {
-          ++p;
-          wtype = w_varassign; /* += or ?= or != */
-          goto done;
-        }
-      break;
-
     default:
       break;
     }
 
-  /* This is some non-operator word.  A word consists of the longest
-     string of characters that doesn't contain whitespace, one of [:=#],
-     or [?+!]=, or &:.  */
+  /* This is some non-operator word.  A word consists of the longest string of
+     characters that doesn't contain whitespace, one of [:#], or &:.  */
 
   /* We start out assuming a static word; if we see a variable we'll
      adjust our assumptions then.  */
   wtype = w_static;
 
-  /* We already found the first value of "c", above.  */
   while (1)
     {
-      char closeparen;
-      int count;
-
+      /* Each time through the loop, "c" has the current character
+         and "p" points to the next character.  */
       if (END_OF_TOKEN (c))
         goto done_word;
 
       switch (c)
         {
-        case '=':
-          goto done_word;
-
         case ':':
 #ifdef HAVE_DOS_PATHS
           /* A word CAN include a colon in its drive spec.  The drive
@@ -2883,34 +2802,9 @@ get_next_mword (char *buffer, char **startp, size_t *length)
           if (c == '\0')
             goto done_word;
 
-          /* This is a variable reference, so note that it's expandable.
-             Then read it to the matching close paren.  */
+          /* This is a variable reference: note that then skip it.  */
           wtype = w_variable;
-
-          if (c == '(')
-            closeparen = ')';
-          else if (c == '{')
-            closeparen = '}';
-          else
-            /* This is a single-letter variable reference.  */
-            break;
-
-          for (count=0; *p != '\0'; ++p)
-            {
-              if (*p == c)
-                ++count;
-              else if (*p == closeparen && --count < 0)
-                {
-                  ++p;
-                  break;
-                }
-            }
-          break;
-
-        case '?':
-        case '+':
-          if (*p == '=')
-            goto done_word;
+          p = skip_reference (p-1);
           break;
 
         case '\\':
@@ -2944,6 +2838,7 @@ get_next_mword (char *buffer, char **startp, size_t *length)
     *startp = beg;
   if (length)
     *length = p - beg;
+
   return wtype;
 }
 
@@ -3062,10 +2957,11 @@ construct_include_path (const char **arg_dirs)
 
   /* Now add each dir to the .INCLUDE_DIRS variable.  */
 
-  do_variable_definition (NILF, ".INCLUDE_DIRS", "", o_default, f_simple, 0);
+  do_variable_definition (NILF, ".INCLUDE_DIRS", "", o_default, f_simple, 0,
+                          s_global);
   for (cpp = dirs; *cpp != 0; ++cpp)
-    do_variable_definition (NILF, ".INCLUDE_DIRS", *cpp,
-                            o_default, f_append, 0);
+    do_variable_definition (NILF, ".INCLUDE_DIRS", *cpp, o_default, f_append,
+                            0, s_global);
 
   free ((void *) include_directories);
   include_directories = dirs;
