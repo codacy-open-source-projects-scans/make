@@ -4974,6 +4974,15 @@ In both of these forms, the arguments to @code{export} and
 @code{unexport} are expanded, and so could be variables or functions
 which expand to a (list of) variable names to be (un)exported.
 
+GNU Make will add any variable you export to the environment of all child
+processes.  However, be aware that some child processes themselves will not
+accept all types of variables.  For example, many modern shells will clean the
+incoming environment by removing or hiding any environment variable whose name
+is invalid for the shell (e.g., alphanumeric plus underscore).  There is
+nothing GNU Make can do about the behavior of these child processes: if you
+want your makefile to be maximally portable you should choose simple variable
+names for all exported variables.
+
 As a convenience, you can define a variable and export it at the same
 time by doing:
 
@@ -5036,15 +5045,10 @@ This tells @code{make} that variables which are not explicitly mentioned in an
 @code{export} or @code{unexport} directive should be exported.  Any variable
 given in an @code{unexport} directive will still @emph{not} be exported.
 
-@findex .EXPORT_ALL_VARIABLES@r{, compatibility}
-@cindex compatibility in exporting
-The behavior elicited by an @code{export} directive by itself was the default
-in older versions of GNU @code{make}.  If your makefiles depend on this
-behavior and you want to be compatible with old versions of @code{make}, you
-can add the special target @code{.EXPORT_ALL_VARIABLES} to your makefile
-instead of using the @code{export} directive.  This will be ignored by old
-@code{make}s, while the @code{export} directive will cause a syntax
-error.
+@findex .EXPORT_ALL_VARIABLES
+Another way to export variables by default is to add the special target
+@code{.EXPORT_ALL_VARIABLES} to your makefile.  This will be ignored by other
+variants of @code{make}.
 
 When using @code{export} by itself or @code{.EXPORT_ALL_VARIABLES} to export
 variables by default, only variables whose names consist solely of
@@ -5058,6 +5062,13 @@ command is invoked.  You can avoid this by ensuring that such variables have
 names which are not exportable by default.  However, a better solution is to
 @emph{not} use this ``export by default'' facility at all, and instead
 explicitly @code{export} the relevant variables by name.
+
+Be aware that exporting all variables can have serious performance impacts,
+especially for recursive variables used in conjunction with the @code{shell}
+function.  We recommend you avoid this and instead export only the specific
+variables needed to run your commands.  If you do need to export all
+variables, use simple variable assignment wherever possible, especially when
+invoking the @code{shell} function.
 
 You can use @code{unexport} by itself to tell @code{make} @emph{not} to export
 variables by default.  Since this is the default behavior, you would only need
@@ -9451,7 +9462,8 @@ regardless of any @code{.WARNINGS} assignments.
 
 In some situations, @code{make} will need to create its own temporary files.
 These files must not be disturbed while @code{make} is running, including all
-recursively-invoked instances of @code{make}.
+recursively-invoked instances of @code{make}.  All temporary filenames created
+by GNU Make will start with the letters @samp{Gm}.
 
 @cindex @code{MAKE_TMPDIR}
 If the environment variable @code{MAKE_TMPDIR} is set then all temporary files
@@ -10704,8 +10716,13 @@ pattern for matching file names; the @samp{%} can match any nonempty
 substring, while other characters match only themselves.  The prerequisites
 likewise use @samp{%} to show how their names relate to the target name.
 
-Thus, a pattern rule @samp{%.o : %.c} says how to make any file
-@file{@var{stem}.o} from another file @file{@var{stem}.c}.
+Thus, a pattern rule @samp{%.o : %.c ; @var{recipe}} describes a process for
+building any file @file{@var{stem}.o} from another file @file{@var{stem}.c}
+using the recipe @var{recipe}.
+
+It is not possible to create a pattern rule that does not have a recipe;
+omitting the recipe removes that pattern rule instead (@pxref{Canceling Rules,
+,Canceling Implicit Rules}).
 
 Note that expansion using @samp{%} in pattern rules occurs
 @strong{after} any variable or function expansions, which take place
@@ -13448,14 +13465,13 @@ has no effect on the operation of @code{make}.@*
 @xref{Recursion, ,Recursive Use of @code{make}}.
 
 @item GNUMAKEFLAGS
-Other flags parsed by @code{make}.  You can set this in the environment or
-a makefile to set @code{make} command-line flags.  GNU @code{make}
-never sets this variable itself.  This variable is only needed if
-you'd like to set GNU @code{make}-specific flags in a POSIX-compliant
-makefile.  This variable will be seen by GNU @code{make} and ignored
-by other @code{make} implementations.  It's not needed if you only use
-GNU @code{make}; just use @code{MAKEFLAGS} directly.@*
-@xref{Options/Recursion, ,Communicating Options to a Sub-@code{make}}.
+Other flags parsed by @code{make}.  You can set this in the environment or a
+makefile to set @code{make} command-line flags.  This variable is only needed
+if you'd like to set GNU @code{make}-specific flags in a POSIX-compliant
+makefile.  This variable will be seen by GNU @code{make} and ignored by other
+@code{make} implementations.  It's not needed if you only use GNU @code{make};
+just use @code{MAKEFLAGS} directly.@* @xref{Options/Recursion, ,Communicating
+Options to a Sub-@code{make}}.
 
 @item .LIBPATTERNS
 Defines the naming of the libraries @code{make} searches for, and their

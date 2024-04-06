@@ -152,13 +152,14 @@ jobserver_setup (int slots, const char *style)
     {
   /* Unfortunately glibc warns about uses of mktemp even though we aren't
      using it in dangerous way here.  So avoid this by generating our own
-     temporary file name.  */
-# define  FNAME_PREFIX "GMfifo"
+     temporary file name.  The template in misc.c uses 6 X's so be sure this
+     name cannot conflict with that.  */
+# define  FNAME_PREFIX "GmFIFO"
       const char *tmpdir = get_tmpdir ();
 
       fifo_name = xmalloc (strlen (tmpdir) + CSTRLEN (FNAME_PREFIX)
                            + INTSTR_LENGTH + 2);
-      sprintf (fifo_name, "%s/" FNAME_PREFIX "%" MK_PRI64_PREFIX "d",
+      sprintf (fifo_name, "%s/" FNAME_PREFIX "%03" MK_PRI64_PREFIX "d",
                tmpdir, (long long)make_pid ());
 
       EINTRLOOP (r, mkfifo (fifo_name, 0600));
@@ -830,12 +831,12 @@ fd_noinherit (int fd)
 /* Set a file descriptor referring to a regular file to be in O_APPEND mode.
    If it fails, just ignore it.  */
 
-void
+int
 fd_set_append (int fd)
 {
+  int flags = -1;
 #if defined(F_GETFL) && defined(F_SETFL) && defined(O_APPEND)
   struct stat stbuf;
-  int flags;
   if (fstat (fd, &stbuf) == 0 && S_ISREG (stbuf.st_mode))
     {
       flags = fcntl (fd, F_GETFL, 0);
@@ -844,6 +845,22 @@ fd_set_append (int fd)
           int r;
           EINTRLOOP(r, fcntl (fd, F_SETFL, flags | O_APPEND));
         }
+    }
+#endif
+  return flags;
+}
+
+/* Reset a file descriptor referring to a regular file to be in O_APPEND mode.
+   If it fails, just ignore it.  */
+
+void
+fd_reset_append (int fd, int flags)
+{
+#if defined(F_GETFL) && defined(F_SETFL) && defined(O_APPEND)
+  if (flags >= 0)
+    {
+      int r;
+      EINTRLOOP(r, fcntl (fd, F_SETFL, flags));
     }
 #endif
 }

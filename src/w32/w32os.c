@@ -129,7 +129,7 @@ os_anontmp ()
   static unsigned uniq = 0;
   static int second_loop = 0;
 
-  const char base[] = "gmake_tmpf";
+  const char base[] = "GmTMPF";
   const unsigned sizemax = sizeof (base) - 1 + 4 + 10 + 10;
   unsigned pid = GetCurrentProcessId ();
 
@@ -512,10 +512,15 @@ fd_noinherit(int fd)
         SetHandleInformation (fh, HANDLE_FLAG_INHERIT, 0);
 }
 
-void
+int
 fd_set_append (int fd UNUSED)
-{}
+{
+  return -1;
+}
 
+void
+fd_reset_append (int fd UNUSED, int flags UNUSED)
+{}
 
 HANDLE
 get_handle_for_fd (int fd)
