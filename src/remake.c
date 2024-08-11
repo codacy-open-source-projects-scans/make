@@ -20,6 +20,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "commands.h"
 #include "dep.h"
 #include "variable.h"
+#include "warning.h"
 #include "debug.h"
 
 #include <assert.h>
@@ -545,7 +546,12 @@ update_file_1 (struct file *file, unsigned int depth)
   check_renamed (file);
   noexist = this_mtime == NONEXISTENT_MTIME;
   if (noexist)
-    DBF (DB_BASIC, _("File '%s' does not exist.\n"));
+    {
+      if (file->phony)
+        DBF (DB_BASIC, _("Target '%s' is phony.\n"));
+      else
+        DBF (DB_BASIC, _("File '%s' does not exist.\n"));
+    }
   else if (is_ordinary_mtime (this_mtime) && file->low_resolution_time)
     {
       /* Avoid spurious rebuilds due to low resolution time stamps.  */
@@ -569,9 +575,14 @@ update_file_1 (struct file *file, unsigned int depth)
       if (noexist)
         {
           check_renamed (adfile);
-          DBS (DB_BASIC,
-               (_("Grouped target peer '%s' of file '%s' does not exist.\n"),
-                adfile->name, file->name));
+          if (adfile->phony)
+            DBS (DB_BASIC,
+                 (_("Grouped target peer '%s' of file '%s' is phony.\n"),
+                  adfile->name, file->name));
+          else
+            DBS (DB_BASIC,
+                 (_("Grouped target peer '%s' of file '%s' does not exist.\n"),
+                  adfile->name, file->name));
         }
       else if (fmtime < this_mtime)
         this_mtime = fmtime;
@@ -635,8 +646,14 @@ update_file_1 (struct file *file, unsigned int depth)
 
           if (is_updating (d->file))
             {
-              OSS (error, NILF, _("circular %s <- %s dependency dropped"),
-                   file->name, d->file->name);
+              /* Avoid macro warning, bacause its output differs from that of
+                 older makes. */
+              if (warn_error (wt_circular_dep))
+                OSS (fatal, NILF, _("circular %s <- %s dependency detected"),
+                     file->name, d->file->name);
+              if (warn_check (wt_circular_dep))
+                OSS (error, NILF, _("circular %s <- %s dependency dropped"),
+                     file->name, d->file->name);
 
               if (lastd == 0)
                 file->deps = du->next;
@@ -857,7 +874,12 @@ update_file_1 (struct file *file, unsigned int depth)
           else if (d_mtime == NONEXISTENT_MTIME)
             {
               if (ISDB (DB_BASIC))
-                fmt = _("Prerequisite '%s' of target '%s' does not exist.\n");
+                {
+                  if (d->file->phony)
+                    fmt = _("Prerequisite '%s' of target '%s' is phony.\n");
+                  else
+                    fmt = _("Prerequisite '%s' of target '%s' does not exist.\n");
+                }
             }
           else if (d->changed)
             {
@@ -1090,11 +1112,17 @@ notice_finished_file (struct file *file)
           d->file->update_status = file->update_status;
 
           if (ran && !d->file->phony)
-            /* Fetch the new modification time.
-               We do this instead of just invalidating the cached time
-               so that a vpath_search can happen.  Otherwise, it would
-               never be done because the target is already updated.  */
-            f_mtime (d->file, 0);
+            {
+              /* Fetch the new modification time.
+                 We do this instead of just invalidating the cached time
+                 so that a vpath_search can happen.  Otherwise, it would
+                 never be done because the target is already updated.  */
+              f_mtime (d->file, 0);
+
+              if (just_print_flag)
+                /* Nothing got updated, but pretend it did.  */
+                d->file->last_mtime = NEW_MTIME;
+            }
         }
 
       /* If the target was created by an implicit rule, and it was updated,
