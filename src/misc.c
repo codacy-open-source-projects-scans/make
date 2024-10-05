@@ -351,7 +351,7 @@ xstrndup (const char *str, size_t length)
 #else
   result = xmalloc (length + 1);
   if (length > 0)
-    strncpy (result, str, length);
+    memcpy (result, str, length);
   result[length] = '\0';
 #endif
 
@@ -947,25 +947,6 @@ strncasecmp (const char *s1, const char *s2, size_t n)
 }
 #endif
 
-
-#ifdef NEED_GET_PATH_MAX
-unsigned int
-get_path_max (void)
-{
-  static unsigned int value;
-
-  if (value == 0)
-    {
-      long x = pathconf ("/", _PC_PATH_MAX);
-      if (x > 0)
-        value = (unsigned int) x;
-      else
-        value = PATH_MAX;
-    }
-
-  return value;
-}
-#endif
 
 #if !HAVE_MEMPCPY
 void *

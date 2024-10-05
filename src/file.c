@@ -432,7 +432,10 @@ remove_intermediates (int sig)
                   }
                 if (status < 0)
                   {
-                    perror_with_name ("\nunlink: ", f->name);
+                    if (doneany)
+                      fputs ("\n", stdout);
+                    fflush (stdout);
+                    perror_with_name ("unlink: ", f->name);
                     /* Start printing over.  */
                     doneany = 0;
                   }
@@ -1027,22 +1030,20 @@ file_timestamp_sprintf (char *p, FILE_TIMESTAMP ts)
   if (tm)
     {
       intmax_t year = tm->tm_year;
-      sprintf (p, "%04" PRIdMAX "-%02d-%02d %02d:%02d:%02d",
-               year + 1900, tm->tm_mon + 1, tm->tm_mday,
-               tm->tm_hour, tm->tm_min, tm->tm_sec);
+      p += sprintf (p, "%04" PRIdMAX "-%02d-%02d %02d:%02d:%02d",
+                    year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                    tm->tm_hour, tm->tm_min, tm->tm_sec);
     }
   else if (t < 0)
-    sprintf (p, "%" PRIdMAX, (intmax_t) t);
+    p += sprintf (p, "%" PRIdMAX, (intmax_t) t);
   else
-    sprintf (p, "%" PRIuMAX, (uintmax_t) t);
-  p += strlen (p);
+    p += sprintf (p, "%" PRIuMAX, (uintmax_t) t);
 
   /* Append nanoseconds as a fraction, but remove trailing zeros.  We don't
      know the actual timestamp resolution, since clock_getres applies only to
      local times, whereas this timestamp might come from a remote filesystem.
      So removing trailing zeros is the best guess that we can do.  */
-  sprintf (p, ".%09d", FILE_TIMESTAMP_NS (ts));
-  p += strlen (p) - 1;
+  p += sprintf (p, ".%09d", FILE_TIMESTAMP_NS (ts)) - 1;
   while (*p == '0')
     p--;
   p += *p != '.';
@@ -1128,6 +1129,9 @@ print_file (const void *item)
     puts (_("#  File is a prerequisite of .NOTINTERMEDIATE."));
   if (f->secondary)
     puts (_("#  File is secondary (prerequisite of .SECONDARY)."));
+  if (f->is_explicit)
+    puts (_("#  File is explicitly mentioned."));
+
   if (f->also_make != 0)
     {
       const struct dep *d;

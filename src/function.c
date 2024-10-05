@@ -737,8 +737,7 @@ func_words (char *o, char **argv, const char *funcname UNUSED)
   while (find_next_token (&word_iterator, NULL) != 0)
     ++i;
 
-  sprintf (buf, "%u", i);
-  o = variable_buffer_output (o, buf, strlen (buf));
+  o = variable_buffer_output (o, buf, sprintf (buf, "%u", i));
 
   return o;
 }
@@ -2110,7 +2109,7 @@ abspath (const char *name, char *apath)
           apath[3] = '/';
           dest++;
           root_len++;
-          /* strncpy above copied one character too many.  */
+          /* memcpy above copied one character too many.  */
           name--;
         }
       else
@@ -2120,7 +2119,7 @@ abspath (const char *name, char *apath)
 
   for (start = end = name; *start != '\0'; start = end)
     {
-      size_t len;
+      ptrdiff_t len;
 
       /* Skip sequence of multiple path-separators.  */
       while (ISDIRSEP (*start))
@@ -2148,7 +2147,7 @@ abspath (const char *name, char *apath)
           if (! ISDIRSEP (dest[-1]))
             *dest++ = '/';
 
-          if (dest + len >= apath_limit)
+          if (apath_limit - dest <= len)
             return NULL;
 
           dest = mempcpy (dest, start, len);
@@ -2179,13 +2178,13 @@ func_realpath (char *o, char **argv, const char *funcname UNUSED)
     {
       if (len < GET_PATH_MAX)
         {
-          char *rp;
+          char *rp, *inend;
           struct stat st;
           PATH_VAR (in);
           PATH_VAR (out);
 
-          strncpy (in, path, len);
-          in[len] = '\0';
+          inend = mempcpy (in, path, len);
+          *inend = '\0';
 
 #ifdef HAVE_REALPATH
           ENULLLOOP (rp, realpath (in, out));
@@ -2354,9 +2353,9 @@ func_abspath (char *o, char **argv, const char *funcname UNUSED)
         {
           PATH_VAR (in);
           PATH_VAR (out);
+          char *inend = mempcpy (in, path, len);
 
-          strncpy (in, path, len);
-          in[len] = '\0';
+          *inend = '\0';
 
           if (abspath (in, out))
             {
@@ -2392,7 +2391,7 @@ static char *func_call (char *o, char **argv, const char *funcname);
 #define FT_ENTRY(_name, _min, _max, _exp, _func) \
   { { (_func) }, STRING_SIZE_TUPLE(_name), (_min), (_max), (_exp), 0, 0 }
 
-static struct function_table_entry function_table_init[] =
+static const struct function_table_entry function_table_init[] =
 {
  /*         Name            MIN MAX EXP? Function */
   FT_ENTRY ("abspath",       0,  1,  1,  func_abspath),
@@ -2659,8 +2658,7 @@ func_call (char *o, char **argv, const char *funcname UNUSED)
     {
       char num[INTSTR_LENGTH];
 
-      sprintf (num, "%u", i);
-      define_variable (num, strlen (num), *argv, o_automatic, 0);
+      define_variable (num, sprintf (num, "%u", i), *argv, o_automatic, 0);
     }
 
   /* If the number of arguments we have is < max_args, it means we're inside
@@ -2672,8 +2670,7 @@ func_call (char *o, char **argv, const char *funcname UNUSED)
     {
       char num[INTSTR_LENGTH];
 
-      sprintf (num, "%u", i);
-      define_variable (num, strlen (num), "", o_automatic, 0);
+      define_variable (num, sprintf (num, "%u", i), "", o_automatic, 0);
     }
 
   /* Expand the function in the context of the arguments, adding the result to
