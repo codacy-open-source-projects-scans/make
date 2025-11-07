@@ -1,5 +1,5 @@
 @echo off
-:: Copyright (C) 2018-2024 Free Software Foundation, Inc.
+:: Copyright (C) 2018-2025 Free Software Foundation, Inc.
 :: This file is part of GNU Make.
 ::
 :: GNU Make is free software; you can redistribute it and/or modify it under
@@ -106,7 +106,7 @@ goto :EOF
 :Download
 if exist "%1\%2" goto :EOF
 echo - Downloading %1\%2
-curl -sS -o "%1\%2" "%gnuliburl%/%1/%2"
+curl -L -sS -o "%1\%2" "%gnuliburl%/%1/%2"
 if ERRORLEVEL 1 exit /b 1
 goto :EOF
 

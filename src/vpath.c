@@ -1,5 +1,5 @@
 /* Implementation of pattern-matching file search paths for GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -15,11 +15,12 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
+
 #include "filedef.h"
-#include "variable.h"
 #if MK_OS_W32
 #include "pathstuff.h"
 #endif
+#include "variable.h"
 
 
 /* Structure used to represent a selective VPATH searchpath.  */

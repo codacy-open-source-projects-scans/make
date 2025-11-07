@@ -1,5 +1,5 @@
 /* Job execution and handling for GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
+
+#include "job.h"
 
 #include <assert.h>
 #include <string.h>
@@ -186,14 +188,13 @@ int getgid ();
 int getloadavg (double loadavg[], int nelem);
 #endif
 
-#include "job.h"
-#include "debug.h"
-#include "filedef.h"
 #include "commands.h"
-#include "variable.h"
-#include "os.h"
+#include "debug.h"
 #include "dep.h"
+#include "filedef.h"
+#include "os.h"
 #include "shuffle.h"
+#include "variable.h"
 #include "warning.h"
 
 /* Different systems have different requirements for pid_t.

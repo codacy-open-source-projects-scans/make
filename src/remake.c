@@ -1,5 +1,5 @@
 /* Basic dependency engine for GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -15,13 +15,6 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
-#include "filedef.h"
-#include "job.h"
-#include "commands.h"
-#include "dep.h"
-#include "variable.h"
-#include "warning.h"
-#include "debug.h"
 
 #include <assert.h>
 
@@ -45,6 +38,14 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 #define STAT stat
 #endif
 #endif
+
+#include "commands.h"
+#include "debug.h"
+#include "dep.h"
+#include "filedef.h"
+#include "job.h"
+#include "variable.h"
+#include "warning.h"
 
 
 /* The test for circular dependencies is based on the 'updating' bit in

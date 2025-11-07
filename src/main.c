@@ -1,5 +1,5 @@
 /* Argument parsing and main program of GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -82,16 +82,16 @@ void exit (int) NORETURN;
 double atof ();
 #endif
 
-#include "os.h"
-#include "filedef.h"
-#include "dep.h"
-#include "variable.h"
-#include "job.h"
 #include "commands.h"
-#include "rule.h"
 #include "debug.h"
+#include "dep.h"
+#include "filedef.h"
 #include "getopt.h"
+#include "job.h"
+#include "os.h"
+#include "rule.h"
 #include "shuffle.h"
+#include "variable.h"
 #include "warning.h"
 
 static void clean_jobserver (int status);
@@ -3759,7 +3759,7 @@ print_version (void)
      year, and none of the rest of it should be translated (including the
      word "Copyright"), so it hardly seems worth it.  */
 
-  printf ("%sCopyright (C) 1988-2024 Free Software Foundation, Inc.\n",
+  printf ("%sCopyright (C) 1988-2025 Free Software Foundation, Inc.\n",
           precede);
 
   printf (_("%sLicense GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>\n\
@@ -3826,9 +3826,9 @@ clean_jobserver (int status)
         ONN (error, NILF,
              "INTERNAL: exiting with %u jobserver tokens available; should be %u!",
              tokens, master_job_slots);
-
-      reset_jobserver ();
     }
+
+  reset_jobserver ();
 }
 
 /* Exit with STATUS, cleaning up as necessary.  */

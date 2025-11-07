@@ -1,5 +1,5 @@
 /* Target file management for GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -18,15 +18,15 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <assert.h>
 
-#include "filedef.h"
-#include "dep.h"
-#include "job.h"
 #include "commands.h"
-#include "variable.h"
 #include "debug.h"
+#include "dep.h"
+#include "filedef.h"
 #include "hash.h"
-#include "shuffle.h"
+#include "job.h"
 #include "rule.h"
+#include "shuffle.h"
+#include "variable.h"
 
 
 /* Remember whether snap_deps has been invoked: we need this to be sure we
@@ -723,9 +723,8 @@ expand_extra_prereqs (const struct variable *extra)
 /* Perform per-file snap operations. */
 
 static void
-snap_file (const void *item, void *arg)
+snap_file (struct file *f, const struct dep *deps)
 {
-  struct file *f = (struct file*)item;
   struct dep *prereqs = NULL;
   struct dep *d;
 
@@ -759,7 +758,7 @@ snap_file (const void *item, void *arg)
           }
     }
   else if (f->is_target)
-    prereqs = copy_dep_chain (arg);
+    prereqs = copy_dep_chain (deps);
 
   if (prereqs)
     {
@@ -914,9 +913,16 @@ snap_deps (void)
   {
     struct dep *prereqs = expand_extra_prereqs (lookup_variable (STRING_SIZE_TUPLE(".EXTRA_PREREQS")));
 
-    /* Perform per-file snap operations.  */
-    hash_map_arg(&files, snap_file, prereqs);
+    /* Perform per-file snap operations.
+       We can't use hash_map*() here because snap_file may add new elements
+       into the files hash, which is not allowed in the map.  Instead make a
+       dump of the files and walk through that.  */
+    void** filedump = hash_dump (&files, NULL, 0);
 
+    for (void** filep = filedump; *filep; ++filep)
+      snap_file (*filep, prereqs);
+
+    free (filedump);
     free_dep_chain (prereqs);
   }
 

@@ -1,5 +1,5 @@
 /* Output to stdout / stderr for GNU Make
-Copyright (C) 2013-2024 Free Software Foundation, Inc.
+Copyright (C) 2013-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
-#include "os.h"
+
 #include "output.h"
 
 /* GNU Make no longer supports pre-ANSI89 environments.  */
@@ -39,6 +39,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 # include <io.h>
 # include "sub_proc.h"
 #endif
+
+#include "os.h"
 
 struct output *output_context = NULL;
 unsigned int stdio_traced = 0;

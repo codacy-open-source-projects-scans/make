@@ -1,5 +1,5 @@
 /* Data base of default implicit rules for GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -18,12 +18,12 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <assert.h>
 
-#include "filedef.h"
-#include "variable.h"
-#include "rule.h"
-#include "dep.h"
-#include "job.h"
 #include "commands.h"
+#include "dep.h"
+#include "filedef.h"
+#include "job.h"
+#include "rule.h"
+#include "variable.h"
 
 /* Define GCC_IS_NATIVE if gcc is the native development environment on
    your system (gcc/bison/flex vs cc/yacc/lex).  */

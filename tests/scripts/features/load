@@ -57,7 +57,7 @@ close($F) or die "close: testload.c: $!\n";
 my $cppflags = get_config('CPPFLAGS') . ($srcdir ? " -I$srcdir/src" : '');
 my $cflags = get_config('CFLAGS') . ' -fPIC';
 my $ldflags = get_config('LDFLAGS') . ' -shared';
-my $sobuild = "$cc $cppflags $cflags $ldflags -o testload.so testload.c";
+my $sobuild = "\"$cc\" $cppflags $cflags $ldflags -o testload.so testload.c";
 
 my $clog = `$sobuild 2>&1`;
 if ($? != 0) {
@@ -165,6 +165,20 @@ all: ; $(load)
 load |: ; echo $@
 !,
               "", "all\n");
+
+# Verify that load does not start with TAB
+
+run_make_test(q!
+#TAB#load ./testload.so
+all:;@echo hi
+!,
+              '', "#MAKEFILE#:2: warning: load lines cannot start with TAB\nhi\n");
+
+run_make_test(q!
+#TAB#-load ./testload.so
+all:;@echo hi
+!,
+              '', "#MAKEFILE#:2: warning: -load lines cannot start with TAB\nhi\n");
 
 # This tells the test driver that the perl test script executed properly.
 1;

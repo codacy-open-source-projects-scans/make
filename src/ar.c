@@ -1,5 +1,5 @@
 /* Interface to 'ar' archives for GNU Make.
-Copyright (C) 1988-2024 Free Software Foundation, Inc.
+Copyright (C) 1988-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Make.
 
@@ -19,10 +19,11 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #ifndef NO_ARCHIVES
 
-#include "filedef.h"
-#include "dep.h"
 #include <fnmatch.h>
 #include <intprops.h>
+
+#include "dep.h"
+#include "filedef.h"
 
 /* Return nonzero if NAME is an archive-member reference, zero if not.  An
    archive-member reference is a name like 'lib(member)' where member is a

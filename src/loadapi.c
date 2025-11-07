@@ -1,5 +1,5 @@
 /* API for GNU Make dynamic objects.
-Copyright (C) 2013-2024 Free Software Foundation, Inc.
+Copyright (C) 2013-2025 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -16,9 +16,9 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
+#include "dep.h"
 #include "filedef.h"
 #include "variable.h"
-#include "dep.h"
 
 /* Allocate a buffer in our context, so we can free it.  */
 char *

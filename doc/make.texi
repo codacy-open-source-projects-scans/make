@@ -27,7 +27,7 @@ of @cite{The GNU Make Manual}, for GNU @code{make} version @value{VERSION}.
 Copyright @copyright{} 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007,
 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019,
-2020, 2021, 2022, 2023, 2024 Free Software Foundation, Inc.
+2020, 2021, 2022, 2023, 2024, 2025 Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -1259,21 +1259,22 @@ include @var{filenames}@dots{}
 @end example
 
 @noindent
-@var{filenames} can contain shell file name patterns.  If
-@var{filenames} is empty, nothing is included and no error is printed.
+If @var{filenames} is empty, nothing is included and no error is printed.
+@var{filenames} can contain shell file name patterns.  If no files match the
+pattern, then @code{make} will treat the pattern as a filename and try to
+include it (and attempt to rebuild if it doesn't exist--@ref{Remaking
+Makefiles, , How Makefiles Are Remade}).
 @cindex shell file name pattern (in @code{include})
 @cindex shell wildcards (in @code{include})
 @cindex wildcard, in @code{include}
 
-Extra spaces are allowed and ignored at the beginning of the line, but
-the first character must not be a tab (or the value of
-@code{.RECIPEPREFIX})---if the line begins with a tab, it will be
-considered a recipe line.  Whitespace is required between
-@code{include} and the file names, and between file names; extra
-whitespace is ignored there and at the end of the directive.  A
-comment starting with @samp{#} is allowed at the end of the line.  If
-the file names contain any variable or function references, they are
-expanded.  @xref{Using Variables, ,How to Use Variables}.
+Whitespace is allowed, and ignored, at the beginning of the line, but the
+first character may not be a tab character.  Whitespace is required between
+@code{include} and the file names, and between file names; extra whitespace is
+ignored there and at the end of the line.  A comment starting with @samp{#} is
+allowed at the end of the line.  If the file names contain any variable or
+function references, they are expanded.  @xref{Using Variables, ,How to Use
+Variables}.
 
 For example, if you have three @file{.mk} files, @file{a.mk},
 @file{b.mk}, and @file{c.mk}, and @code{$(bar)} expands to
@@ -2500,6 +2501,9 @@ search path for a particular class of file names: those that match a
 particular pattern.  Thus you can supply certain search directories for
 one class of file names and other directories (or none) for other file
 names.
+
+A @code{vpath} directive can be preceded by whitespace, but the line cannot
+begin with a tab character.
 
 There are three forms of the @code{vpath} directive:
 
@@ -4992,6 +4996,10 @@ In both of these forms, the arguments to @code{export} and
 @code{unexport} are expanded, and so could be variables or functions
 which expand to a (list of) variable names to be (un)exported.
 
+As with all directives, @code{export} and @code{unexport} can be preceded by
+whitespace, which is ignored, but the first character in the directive line
+may not be a tab character.
+
 GNU Make will add any variable you export to the environment of all child
 processes.  However, be aware that some child processes themselves will not
 accept all types of variables.  For example, many modern shells will clean the
@@ -6582,27 +6590,29 @@ endef
 @cindex variables, defining verbatim
 
 Another way to set the value of a variable is to use the @code{define}
-directive.  This directive has an unusual syntax which allows newline
-characters to be included in the value, which is convenient for
-defining both canned sequences of commands (@pxref{Canned Recipes,
-,Defining Canned Recipes}), and also sections of makefile syntax to
-use with @code{eval} (@pxref{Eval Function}).
+directive.  This directive allows newline characters to be included in the
+value, which is convenient for defining both canned sequences of commands
+(@pxref{Canned Recipes, ,Defining Canned Recipes}), and also sections of
+makefile syntax to use with @code{eval} (@pxref{Eval Function}).  Aside from
+the difference in syntax, @code{define} behaves like any other variable
+definition.
 
-The @code{define} directive is followed on the same line by the name
-of the variable being defined and an (optional) assignment operator,
-and nothing more.  The value to give the variable appears on the
-following lines.  The end of the value is marked by a line containing
-just the word @code{endef}.
+The @code{define} directive may be preceded by whitespace, which is ignored.
+However, the line @emph{may not} begin with a tab character.  The directive is
+followed on the same line by whitespace then the name of the variable being
+defined, and an (optional) assignment operator.  The variable name may contain
+function and variable references, which are expanded when the directive is
+read to determine the final variable name to use.
 
-Aside from this difference in syntax, @code{define} works just like
-any other variable definition.  The variable name may contain function
-and variable references, which are expanded when the directive is read
-to find the actual variable name to use.
+The value to be assigned to the variable appears on the subsequent lines.  The
+end of the value is marked by a line containing just the word @code{endef}
+(optionally preceded by whitespace, but again the line cannot begin with a tab
+character).
 
-The final newline before the @code{endef} is not included in the
-value; if you want your value to contain a trailing newline you must
-include a blank line.  For example in order to define a variable that
-contains a newline character you must use @emph{two} empty lines, not one:
+The final newline before the @code{endef} is not included in the value; if you
+want your value to contain a trailing newline you must include a blank line.
+For example in order to define a variable that contains a newline character
+you must use @emph{two} empty lines, not one:
 
 @example
 define newline
@@ -6611,19 +6621,15 @@ define newline
 endef
 @end example
 
-You may omit the variable assignment operator if you prefer.  If
-omitted, @code{make} assumes it to be @samp{=} and creates a
-recursively-expanded variable (@pxref{Flavors, ,The Two Flavors of Variables}).
-When using a @samp{+=} operator, the value is appended to the previous
-value as with any other append operation: with a single space
+You may omit the variable assignment operator.  If omitted, @code{make}
+assumes it to be @samp{=} and creates a recursively-expanded variable
+(@pxref{Flavors, ,The Two Flavors of Variables}).  When using a @samp{+=}
+operator, the value is appended to the previous value with a single space
 separating the old and new values.
 
-You may nest @code{define} directives: @code{make} will keep track of
-nested directives and report an error if they are not all properly
-closed with @code{endef}.  Note that lines beginning with the recipe
-prefix character are considered part of a recipe, so any @code{define}
-or @code{endef} strings appearing on such a line will not be
-considered @code{make} directives.
+You may nest @code{define} directives: @code{make} will keep track of nested
+directives and report an error if any are not properly closed with
+@code{endef}.
 
 @example
 define two-lines
@@ -6773,7 +6779,7 @@ Multiple @var{target} values create a target-specific variable value for
 each member of the target list individually.
 
 The @var{variable-assignment} can be any valid form of assignment; recursive
-(@samp{=}), simple (@samp{:=} or @samp{::=}), immediate (@samp{::=}), shell
+(@samp{=}), simple (@samp{:=} or @samp{::=}), immediate (@samp{:::=}), shell
 (@samp{!=}), or appending (@samp{+=}), and may be preceded by a conditional
 modifier (@samp{?}).  The variable that appears within the
 @var{variable-assignment} is evaluated within the context of the target: thus,
@@ -7216,12 +7222,16 @@ makefile.  @xref{Warnings, ,Makefile Warnings}.
 @chapter Conditional Parts of Makefiles
 
 @cindex conditionals
-A @dfn{conditional} directive causes part of a makefile to be obeyed
-or ignored depending on the values of variables.  Conditionals can
-compare the value of one variable to another, or the value of a
-variable to a constant string.  Conditionals control what @code{make}
-actually ``sees'' in the makefile, so they @emph{cannot} be used to
-control recipes at the time of execution.
+A @dfn{conditional} directive allows part of a makefile to be parsed or
+ignored based on a condition.  Conditionals can check whether @code{make}
+variables are defined, or compare the results of expanding two strings for
+equality.
+
+Conditionals are evaluated @emph{as the makefile is parsed}, so it cannot
+access values that are only known when a target is being built.  For example,
+conditions cannot be based on automatic variables (@pxref{Automatic
+Variables}), target-specific variables (@pxref{Target-specific,
+,Target-specific Variable Values}), or values set in a recipe.
 
 @menu
 * Conditional Example::         Example of a conditional
@@ -7232,12 +7242,11 @@ control recipes at the time of execution.
 @node Conditional Example
 @section Example of a Conditional
 
-The following example of a conditional tells @code{make} to use one
-set of libraries if the @code{CC} variable is @samp{gcc}, and a
-different set of libraries otherwise.  It works by controlling which
-of two recipe lines will be used for the rule.  The result is that
-@samp{CC=gcc} as an argument to @code{make} changes not only which
-compiler is used but also which libraries are linked.
+The following example causes @code{make} to use one set of libraries if the
+@code{CC} variable is @samp{gcc}, and a different set of libraries otherwise.
+It works by controlling which of two recipe lines will be used for the rule.
+The result is that @samp{CC=gcc} as an argument to @code{make} changes not
+only which compiler is used but also which libraries are linked.
 
 @example
 libs_for_gcc = -lgnu
@@ -7251,8 +7260,8 @@ else
 endif
 @end example
 
-This conditional uses three directives: one @code{ifeq}, one @code{else}
-and one @code{endif}.
+This conditional uses three directives: @code{ifeq}, @code{else}, and
+@code{endif}.
 
 The @code{ifeq} directive begins the conditional, and specifies the
 condition.  It contains two arguments, separated by a comma and surrounded
@@ -7261,10 +7270,10 @@ then they are compared.  The lines of the makefile following the
 @code{ifeq} are obeyed if the two arguments match; otherwise they are
 ignored.
 
-The @code{else} directive causes the following lines to be obeyed if the
-previous conditional failed.  In the example above, this means that the
-second alternative linking command is used whenever the first alternative
-is not used.  It is optional to have an @code{else} in a conditional.
+The @code{else} directive causes the following lines to be active if the
+previous condition was false.  In the example above, this means that the
+second alternative linking command is used whenever the first alternative is
+not used.  It is optional to have an @code{else} in a conditional.
 
 The @code{endif} directive ends the conditional.  Every conditional must
 end with an @code{endif}.  Unconditional makefile text follows.
@@ -7285,14 +7294,13 @@ foo: $(objects)
 
 @noindent
 When the variable @code{CC} has any other value, the effect is this:
-
 @example
 foo: $(objects)
         $(CC) -o foo $(objects) $(normal_libs)
 @end example
 
-Equivalent results can be obtained in another way by conditionally assigning a
-variable and then using the variable unconditionally:
+Equivalent results can be obtained by conditionally assigning a variable and
+then using the variable unconditionally:
 
 @example
 libs_for_gcc = -lgnu
@@ -7316,6 +7324,17 @@ foo: $(objects)
 @findex ifneq
 @findex else
 @findex endif
+
+A conditional section begins with one of the four ``if'' directives @code{ifdef}, @code{ifndef}, @code{ifeq}, or @code{ifneq}.  Each
+conditional section must end with the @code{endif} directive.  A section may
+contain the @code{else} directive to provide an alternative section if the
+original condition is false.  The @code{else} directive can be followed (on
+the same line) by another ``if'' directive introducing a new condition.
+
+Spaces may appear, and are ignored, at the beginning of a conditional
+directive line.  However, conditional directive lines @emph{may not} start
+with a tab character.  The @code{ifeq} and @code{ifneq} directives must be
+followed by whitespace, before the conditional expression.
 
 The syntax of a simple conditional with no @code{else} is as follows:
 
@@ -7462,13 +7481,6 @@ If the variable @var{variable-name} has an empty value, the
 if any, is effective.  The rules for expansion and testing of
 @var{variable-name} are identical to the @code{ifdef} directive.
 @end table
-
-Extra spaces are allowed and ignored at the beginning of the
-conditional directive line, but a tab is not allowed.  (If the line
-begins with a tab, it will be considered part of a recipe for a rule.)
-Aside from this, extra spaces or tabs may be inserted with no effect
-anywhere except within the directive name or within an argument.  A
-comment starting with @samp{#} may appear at the end of the line.
 
 The other two directives that play a part in a conditional are @code{else}
 and @code{endif}.  Each of these directives is written as one word, with no
@@ -7670,11 +7682,14 @@ produces the value @samp{fEEt on the strEEt}.
 Finds whitespace-separated words in @var{text} that match @var{pattern} and
 replaces them with @var{replacement}.  Here @var{pattern} may contain a
 @samp{%} which acts as a wildcard, matching any number of any characters
-within a word.  If @var{replacement} also contains a @samp{%}, the @samp{%} is
-replaced by the text that matched the @samp{%} in @var{pattern}.  Words that
-do not match the pattern are kept without change in the output.  Only the
-first @samp{%} in the @var{pattern} and @var{replacement} is treated this way;
-any subsequent @samp{%} is unchanged.
+within a word.  The @var{pattern} must match the entire word, otherwise the
+word does not match.  Words that do not match @var{pattern} are preserved
+in the result without change.
+
+If @var{replacement} also contains a @samp{%}, the @samp{%} is replaced by the
+text that matched the @samp{%} in @var{pattern}.  Only the first @samp{%} in
+the @var{pattern} and @var{replacement} is treated this way; any subsequent
+@samp{%} is unchanged.
 
 If @var{pattern} does not contain a @samp{%} then the entire word must compare
 equal to be a match.
@@ -7683,17 +7698,16 @@ equal to be a match.
 @cindex @code{\} (backslash), to quote @code{%}
 @cindex backslash (@code{\}), to quote @code{%}
 @cindex quoting @code{%}, in @code{patsubst}
-@samp{%} characters in @code{patsubst} function invocations can be
-quoted with preceding backslashes (@samp{\}).  Backslashes that would
-otherwise quote @samp{%} characters can be quoted with more backslashes.
-Backslashes that quote @samp{%} characters or other backslashes are
-removed from the pattern before it is compared to file names or has a stem
-substituted into it.  Backslashes that are not in danger of quoting
-@samp{%} characters go unmolested.  For example, the pattern
-@file{the\%weird\\%pattern\\} has @samp{the%weird\} preceding the
-operative @samp{%} character, and @samp{pattern\\} following it.  The
-final two backslashes are left alone because they cannot affect any
-@samp{%} character.
+@samp{%} characters in @code{patsubst} function invocations can be quoted with
+preceding backslashes (@samp{\}).  Backslashes that would otherwise quote
+@samp{%} characters can be quoted with more backslashes.  Backslashes that
+quote @samp{%} characters or other backslashes are removed from the pattern
+before it is compared to file names or has a stem substituted into it.
+Backslashes that are not in danger of quoting @samp{%} characters go
+unmolested.  For example, the pattern @file{the\%weird\\%pattern\\} has
+@samp{the%weird\} preceding the operative @samp{%} character, and
+@samp{pattern\\} following it.  The final two backslashes are left alone
+because they cannot affect any @samp{%} character.
 
 Whitespace between words is folded into single space characters;
 leading and trailing whitespace is discarded.
@@ -7753,26 +7767,25 @@ directive would make it more robust.
 @cindex searching for strings
 @cindex finding strings
 @cindex strings, searching for
-Searches @var{in} for an occurrence of @var{find}.  If it occurs, the
-value is @var{find}; otherwise, the value is empty.  You can use this
-function in a conditional to test for the presence of a specific
-substring in a given string.  Thus, the two examples,
+Searches the string @var{in} for an occurrence of the string @var{find}.  If
+it occurs, the result is @var{find}; otherwise, the result is the empty
+string.  You can use this function in a conditional to test for the presence
+of a specific substring in a given string.  These two examples:
 
 @example
-$(findstring a,a b c)
-$(findstring a,b c)
+$(findstring lo Wo,Hello World!)
+$(findstring lo Wo,World Hello!)
 @end example
 
 @noindent
-produce the values @samp{a} and @samp{} (the empty string),
-respectively.  @xref{Testing Flags}, for a practical application of
-@code{findstring}.
+expand to @samp{lo Wo} and @samp{} (the empty string), respectively.
+@xref{Testing Flags}, for a practical application of @code{findstring}.
 
 @need 750
+@item $(filter @var{pattern}@dots{},@var{text})
 @findex filter
 @cindex filtering words
 @cindex words, filtering
-@item $(filter @var{pattern}@dots{},@var{text})
 Returns all whitespace-separated words in @var{text} that @emph{do} match
 any of the @var{pattern} words, removing any words that @emph{do not}
 match.  Each word in @var{pattern} is compared to every word in @var{text}
@@ -12160,8 +12173,10 @@ or:
 load @var{object-file}(@var{symbol-name}) @dots{}
 @end example
 
-More than one object file may be loaded with a single @code{load} directive,
-and both forms of @code{load} arguments may be used in the same directive.
+Whitespace can precede the directive and is ignored, but the first character
+may not be a tab character.  More than one object file may be loaded with a
+single @code{load} directive, and both forms of @code{load} arguments may be
+used in the same directive.
 
 The file @var{object-file} is dynamically loaded by GNU @code{make}.  If
 @var{object-file} does not include a directory path then it is first looked

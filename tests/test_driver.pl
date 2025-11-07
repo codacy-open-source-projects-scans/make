@@ -5,7 +5,7 @@
 # Written 91-12-02 through 92-01-01 by Stephen McGee.
 # Modified 92-02-11 through 92-02-22 by Chris Arthur to further generalize.
 #
-# Copyright (C) 1991-2024 Free Software Foundation, Inc.
+# Copyright (C) 1991-2025 Free Software Foundation, Inc.
 # This file is part of GNU Make.
 #
 # GNU Make is free software; you can redistribute it and/or modify it under
@@ -399,8 +399,9 @@ sub toplevel
         ++$i;
         print "  Failure $i:\n";
         print "    run:  $e->{'run'}\n" if exists($e->{'run'});
-        print "    base: $e->{'base'}\n";
+        print "    base: $e->{'base'}\n" if exists($e->{'base'});
         print "    diff: $e->{'diff'}\n" if exists($e->{'diff'});
+        print "    log:  $e->{'log'}\n" if exists($e->{'log'});
     }
     return 0;
   }
@@ -1032,11 +1033,12 @@ sub compare_output
   my $run = get_runfile();
   my $diff = get_difffile();
 
-  my %e = ('base' => File::Spec->catdir($testpath, $base));
+  my %e = ('log' => File::Spec->catdir($testpath, $logfile));
 
   if (! $matched) {
     &create_file($base, $answer);
     &create_file($run, $command_string);
+    $e{'base'} = File::Spec->catdir($testpath, $base);
     $e{'run'} = File::Spec->catdir($testpath, $run);
   }
 
@@ -1049,7 +1051,7 @@ sub compare_output
   if (! $matched) {
     # Create the difference file
     if ($diff_name) {
-        run_command_with_output($diff, "$diff_name -c $base $logfile");
+        run_command_with_output($diff, "\"$diff_name\" -c $base $logfile");
     } else {
         create_file($diff, "Log file $logfile differs from base file $base\n");
     }

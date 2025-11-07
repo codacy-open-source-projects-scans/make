@@ -11,7 +11,7 @@
 #                         [-make <make prog>]
 #                        (and others)
 
-# Copyright (C) 1992-2024 Free Software Foundation, Inc.
+# Copyright (C) 1992-2025 Free Software Foundation, Inc.
 # This file is part of GNU Make.
 #
 # GNU Make is free software; you can redistribute it and/or modify it under
@@ -165,6 +165,8 @@ sub subst_make_string
     $makefile and s/#MAKEFILE#/$makefile/g;
     s/#MAKEPATH#/$mkpath/g;
     s/#MAKE#/$make_name/g;
+    s/#TAB#/\t/g;
+    s/#SPACE#/ /g;
     s/#PERL#/$perl_name/g;
     s/#PWD#/$wd/g;
     s/#HELPER#/$perl_name $helptool/g;
@@ -528,7 +530,7 @@ sub set_more_defaults
     $make_path = 'make';
   } else {
     create_file('make.mk', 'all:;$(info $(MAKE))');
-    my $mk = `$make_path -sf make.mk`;
+    my $mk = `"$make_path" -sf make.mk`;
     unlink('make.mk');
     $mk =~ s/\r?\n$//;
     $mk or die "FATAL ERROR: Cannot determine the value of \$(MAKE)\n";
@@ -538,18 +540,18 @@ sub set_more_defaults
 
   # Ask make what shell to use
   create_file('shell.mk', 'all:;$(info $(SHELL))');
-  $sh_name = `$make_path -sf shell.mk`;
+  $sh_name = `"$make_path" -sf shell.mk`;
   unlink('shell.mk');
   $sh_name =~ s/\r?\n$//;
   if (! $sh_name) {
       print "Cannot determine shell\n";
       $is_posix_sh = 0;
   } else {
-      my $o = `$sh_name -c ': do nothing' 2>&1`;
+      my $o = `"$sh_name" -c ': do nothing' 2>&1`;
       $is_posix_sh = $? == 0 && $o eq '';
   }
 
-  $string = `$make_path -v`;
+  $string = `"$make_path" -v`;
   $string =~ /^(GNU Make [^,\n]*)/ or die "$make_path is not GNU Make.  Version:\n$string";
   $testee_version = "$1\n";
 
@@ -557,7 +559,7 @@ sub set_more_defaults
 
   my $redir = '2>&1';
   $redir = '' if os_name eq 'VMS';
-  $string = `$make_path -f null.mk $redir`;
+  $string = `"$make_path" -f null.mk $redir`;
   if ($string =~ /(.*): \*\*\* No targets\.  Stop\./) {
     $make_name = $1;
   } else {
@@ -591,7 +593,7 @@ sub set_more_defaults
     $purify_errors = 0;
   }
 
-  $string = `$make_path -j 2 -f null.mk $redir`;
+  $string = `"$make_path" -j 2 -f null.mk $redir`;
   if ($string =~ /not supported/) {
     $parallel_jobs = 0;
   }
@@ -602,7 +604,7 @@ sub set_more_defaults
   unlink('null.mk');
 
   create_file('features.mk', 'all:;$(info $(.FEATURES))');
-  %FEATURES = map { $_ => 1 } split /\s+/, `$make_path -sf features.mk`;
+  %FEATURES = map { $_ => 1 } split /\s+/, `"$make_path" -sf features.mk`;
   print "$make_path FEATURES: @{[%FEATURES]}\n" if $verbose;
   unlink('features.mk');
 
@@ -612,7 +614,7 @@ sub set_more_defaults
       $s .= "\$(info $_=\$($_))\n";
   }
   create_file('defvars.mk', $s);
-  foreach (split "\n", `$make_path -sf defvars.mk`) {
+  foreach (split "\n", `"$make_path" -sf defvars.mk`) {
       my @e = split /=/, $_, 2;
       $DEFVARS{$e[0]} = $e[1];
   }
