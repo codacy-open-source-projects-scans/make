@@ -434,7 +434,7 @@ osync_get_mutex ()
       /* Prepare the mutex handle string for our children.
          2 hex digits per byte + 2 characters for "0x" + null.  */
       mutex = xmalloc ((2 * sizeof (osync_handle)) + 2 + 1);
-      sprintf (mutex, "0x%Ix", (unsigned long long)(DWORD_PTR)osync_handle);
+      sprintf (mutex, "0x%I64x", (unsigned long long)(DWORD_PTR)osync_handle);
     }
 
   return mutex;
